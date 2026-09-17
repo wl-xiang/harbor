@@ -66,8 +66,14 @@ jobs:
             MAKE_ARCH="amd64"
           fi
           
-          # Generate versions file required by Docker build
-          sudo -E make versions_prepare VERSIONTAG=${{ github.run_number }}
+          # Compile the Go binaries (core / jobservice / registryctl) required by
+          # the Docker image builds, and generate the versions file.
+          # "make build" only builds the Docker images; it does NOT compile the
+          # binaries that the Dockerfiles COPY (e.g. make/photon/core/harbor_core),
+          # which caused "COPY ...: not found" errors.
+          sudo -E make compile \
+            ARCH=${MAKE_ARCH} \
+            VERSIONTAG=${{ github.run_number }}
           
           # Build images for the target architecture
           # Using BUILD_BASE=false to use existing base images from Docker Hub
