@@ -94,12 +94,25 @@ jobs:
         run: |
           cd src/github.com/goharbor/harbor
           
-          # Copy harbor.yml.tmpl to harbor.yml for prepare
+          # Build a valid harbor.yml from the template.
+          # harbor.yml.tmpl cannot be used as-is: it still contains the
+          # placeholder hostname (reg.mydomain.com) and an enabled https block
+          # with placeholder cert paths, both of which fail the prepare
+          # validation with "ERROR:root:Please specify hostname".
           cp make/harbor.yml.tmpl make/harbor.yml
+          # Listen on all interfaces and serve Harbor's UI/registry on port 9001
+          sed -i 's/^hostname: .*/hostname: 0.0.0.0/' make/harbor.yml
+          sed -i 's/^  port: 80$/  port: 9001/' make/harbor.yml
+          # Disable https so prepare uses plain http (the https cert paths are placeholders)
+          sed -i '/^https:/,/private_key:/s/^/#/' make/harbor.yml
           
           # Run prepare to generate docker-compose.yml
-          # This will process harbor.yml.tmpl and generate the final docker-compose.yml
+          # VERSIONTAG must match the one used by "make build" above so the
+          # generated compose file references the images built in this run.
+          # Without it, prepare would use the prebuilt goharbor/prepare:dev
+          # image whose baked-in versions file points at the stale :dev tag.
           sudo -E make prepare \
+            VERSIONTAG=${{ github.run_number }} \
             TRIVYFLAG=true \
             EXPORTERFLAG=true
           
